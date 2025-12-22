@@ -48,7 +48,6 @@
 //         .catch(err => alert("Cannot connect to ESP32!"));
 // }
 
-
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -69,10 +68,13 @@
   const database = firebase.database();
 </script>
 
+
 <script>
 // ---- Vehicle Allowed Codes ----
 const emergencyCodes = ["EM100", "EM200", "AMBULANCE1"];
 const normalCodes = ["NR501", "NR777", "CAR102"];
+
+const ROAD_PATH = "SmartRoad/road-1";
 
 // ---- Submit: Emergency ----
 function submitEmergency() {
@@ -81,10 +83,8 @@ function submitEmergency() {
     if (emergencyCodes.includes(code)) {
         document.getElementById("emDirection").innerText = "Direction: RIGHT ✓";
 
-        firebase.database().ref("vehicle").set({
-            type: "emergency",
-            allowed: true
-        });
+        firebase.database().ref(`${ROAD_PATH}/ai/decision`).set("RIGHT");
+        firebase.database().ref(`${ROAD_PATH}/ai/override`).set("EMERGENCY");
     } else {
         alert("Invalid Emergency Code!");
     }
@@ -97,30 +97,38 @@ function submitNormal() {
     if (normalCodes.includes(code)) {
         document.getElementById("nmDirection").innerText = "Direction: LEFT ✓";
 
-        firebase.database().ref("vehicle").set({
-            type: "normal",
-            allowed: true
-        });
+        firebase.database().ref(`${ROAD_PATH}/ai/decision`).set("LEFT");
+        firebase.database().ref(`${ROAD_PATH}/ai/override`).set("NORMAL");
     } else {
         alert("Invalid Vehicle Code!");
     }
 }
+</script>
 
-// ---- Read Sensor Data from Firebase ----
+<script>
 function refreshData() {
-    firebase.database().ref("sensors").on("value", snapshot => {
+    firebase.database().ref("SmartRoad/road-1").on("value", snapshot => {
         const data = snapshot.val();
+        if (!data) return;
 
-        if (data) {
-            document.getElementById("roadID").innerText = data.road;
-            document.getElementById("congestion").innerText = data.congestion;
-            document.getElementById("pollution").innerText = data.pollution + "%";
-            document.getElementById("weather").innerText = data.weather;
-        }
+        // Traffic
+        document.getElementById("congestion").innerText =
+            data.traffic?.vehicleCount ?? "--";
+
+        // MQ Pollution
+        document.getElementById("pollution").innerText =
+            (data.sensors?.mq_pct ?? "--") + "%";
+
+        // AI Decision
+        document.getElementById("roadID").innerText =
+            data.ai?.decision ?? "WAITING";
+
+        // Last Event (IN / OUT)
+        document.getElementById("weather").innerText =
+            data.traffic?.lastEvent ?? "--";
     });
 }
 
-// Auto load sensor data
+// Auto load
 refreshData();
 </script>
-
